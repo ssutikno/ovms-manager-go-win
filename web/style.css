@@ -1,0 +1,179 @@
+* {
+  box-sizing: border-box;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #f4f6f8;
+  color: #111;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+
+.header {
+  margin-bottom: 16px;
+}
+
+.header h1 {
+  margin: 0 0 4px;
+}
+
+.header p {
+  margin: 0;
+  color: #555;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ovms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.ovms-item {
+  border: 1px solid #d9dfe5;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fafcff;
+}
+
+.ovms-label {
+  color: #556270;
+  font-size: 12px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ovms-value {
+  font-weight: 600;
+}
+
+.ovms-pill {
+  display: inline-block;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e9edf2;
+  color: #29323d;
+}
+
+.ovms-pill.running {
+  background: #d8f5df;
+  color: #1b6d2e;
+}
+
+.ovms-pill.stopped {
+  background: #fde7cf;
+  color: #7a4d0f;
+}
+
+.ovms-pill.missing {
+  background: #fbe1e4;
+  color: #8a1d2c;
+}
+
+.ovms-details {
+  margin: 12px 0 8px;
+  font-size: 14px;
+  color: #3a4756;
+}
+
+.ovms-link {
+  color: #0a5ea8;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.ovms-link:hover {
+  text-decoration: underline;
+}
+
+#catalog-page-info {
+  color: #333;
+  font-size: 14px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+th,
+td {
+  border: 1px solid #ddd;
+  text-align: left;
+  padding: 8px;
+  vertical-align: middle;
+}
+
+th {
+  background: #f0f2f4;
+}
+
+button,
+select,
+input[type="text"] {
+  padding: 6px 10px;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  background: white;
+}
+
+button {
+  cursor: pointer;
+  margin-left: 8px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.task-input {
+  width: 150px;
+  margin-left: 8px;
+}
+
+button.danger {
+  border-color: #c55;
+  color: #922;
+}
+
+.status {
+  min-height: 20px;
+  color: #135;
+}
+
+.status.error {
+  color: #a11;
+}

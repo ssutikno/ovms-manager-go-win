@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OVMS Model Manager</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header class="header">
+        <h1>OVMS Model Manager</h1>
+        <p>Manage model downloads and registration in one place</p>
+      </header>
+
+      <section class="card">
+        <div class="row-between">
+          <h2>OVMS Runtime</h2>
+          <div class="controls">
+            <button id="ovms-refresh-btn">Refresh OVMS</button>
+            <button id="ovms-install-btn">Install Service</button>
+            <button id="ovms-start-btn">Start Service</button>
+            <button id="ovms-stop-btn">Stop Service</button>
+            <button id="ovms-update-btn">Check Update</button>
+          </div>
+        </div>
+
+        <div class="ovms-grid">
+          <div class="ovms-item">
+            <div class="ovms-label">Service</div>
+            <div id="ovms-service-state" class="ovms-pill">Unknown</div>
+          </div>
+          <div class="ovms-item">
+            <div class="ovms-label">Installed Version</div>
+            <div id="ovms-installed-version" class="ovms-value">Unknown</div>
+          </div>
+          <div class="ovms-item">
+            <div class="ovms-label">Latest Version</div>
+            <div id="ovms-latest-version" class="ovms-value">Unknown</div>
+          </div>
+          <div class="ovms-item">
+            <div class="ovms-label">Update</div>
+            <div id="ovms-update-state" class="ovms-value">Unknown</div>
+          </div>
+        </div>
+
+        <p id="ovms-details" class="ovms-details"></p>
+        <a
+          id="ovms-latest-link"
+          class="ovms-link"
+          href="#"
+          target="_blank"
+          rel="noopener noreferrer"
+          hidden
+          >View latest OVMS release</a
+        >
+      </section>
+
+      <section class="card">
+        <div class="row-between">
+          <h2>Model Catalog (Internet)</h2>
+          <div class="controls">
+            <input id="catalog-query" type="text" placeholder="Search catalog" />
+            <button id="catalog-search-btn">Search</button>
+            <button id="catalog-prev-btn">Prev</button>
+            <span id="catalog-page-info">Page 1</span>
+            <button id="catalog-next-btn">Next</button>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Source Model</th>
+              <th>Downloads</th>
+              <th>Task</th>
+              <th>Last Modified</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="catalog-body"></tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <div class="row-between">
+          <h2>Download Jobs</h2>
+          <button id="jobs-refresh-btn">Refresh Jobs</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Source</th>
+              <th>Model Name</th>
+              <th>Status</th>
+              <th>Progress</th>
+              <th>Task</th>
+              <th>Error</th>
+            </tr>
+          </thead>
+          <tbody id="jobs-body"></tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <div class="row-between">
+          <h2>Downloaded Models</h2>
+          <button id="refresh-btn">Refresh</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Compatible</th>
+              <th>Reason</th>
+              <th>Registered</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="downloaded-body"></tbody>
+        </table>
+      </section>
+
+      <p id="status" class="status"></p>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
