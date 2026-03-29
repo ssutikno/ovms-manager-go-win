@@ -108,6 +108,8 @@ type catalogItem struct {
 	SuggestedTask string   `json:"suggestedTask,omitempty"`
 	LastModified  string   `json:"lastModified,omitempty"`
 	Tags          []string `json:"tags,omitempty"`
+	Compatible    bool     `json:"compatible"`
+	CompatReason  string   `json:"compatReason,omitempty"`
 }
 
 type catalogResponse struct {
@@ -1429,6 +1431,84 @@ func parsePositiveInt(value string, defaultValue int) int {
 	return parsed
 }
 
+// checkGGUFOpenVINOCompat returns whether a GGUF model is likely compatible with
+// OpenVINO GenAI serving. It uses the HF pipeline_tag and model tags to decide.
+func checkGGUFOpenVINOCompat(task string, tags []string) (bool, string) {
+	normTask := strings.ToLower(strings.TrimSpace(task))
+
+	// Tasks that OpenVINO GenAI can serve via GGUF
+	compatTasks := map[string]bool{
+		"text-generation":            true,
+		"text2text-generation":       true,
+		"conversational":             true,
+		"question-answering":         true,
+		"summarization":              true,
+		"translation":                true,
+		"feature-extraction":         true,
+		"sentence-similarity":        true,
+		"fill-mask":                  true,
+	}
+
+	// Tasks that are definitely NOT compatible
+	incompatTasks := map[string]bool{
+		"text-to-image":                    true,
+		"image-to-image":                   true,
+		"image-classification":             true,
+		"image-text-to-text":               true,
+		"visual-question-answering":        true,
+		"zero-shot-image-classification":   true,
+		"object-detection":                 true,
+		"image-segmentation":               true,
+		"depth-estimation":                 true,
+		"automatic-speech-recognition":     true,
+		"audio-classification":             true,
+		"text-to-audio":                    true,
+		"text-to-speech":                   true,
+		"audio-to-audio":                   true,
+		"video-classification":             true,
+		"unconditional-image-generation":   true,
+		"mask-generation":                  true,
+		"keypoint-detection":               true,
+	}
+
+	if incompatTasks[normTask] {
+		return false, "task '" + task + "' is not supported by OpenVINO GenAI GGUF serving"
+	}
+
+	// Check if any tag indicates an incompatible modality
+	for _, tag := range tags {
+		t := strings.ToLower(strings.TrimSpace(tag))
+		if strings.HasPrefix(t, "text-to-image") || t == "diffusers" || t == "stable-diffusion" ||
+			t == "stable-diffusion-xl" || t == "flux" || t == "audio" || t == "speech" ||
+			t == "image-classification" || t == "object-detection" {
+			return false, "model tags suggest a non-LLM modality incompatible with OpenVINO GenAI"
+		}
+	}
+
+	if compatTasks[normTask] {
+		return true, ""
+	}
+
+	// Empty or unknown pipeline_tag — check tags for known LLM architectures
+	if normTask == "" {
+		llmArchs := []string{"llama", "mistral", "phi", "qwen", "gemma", "falcon", "mpt",
+			"bloom", "gpt", "opt", "llm", "causal-lm", "decoder", "mixtral", "deepseek",
+			"command", "internlm", "baichuan", "chatglm", "vicuna", "wizard"}
+		for _, tag := range tags {
+			tl := strings.ToLower(tag)
+			for _, arch := range llmArchs {
+				if strings.Contains(tl, arch) {
+					return true, ""
+				}
+			}
+		}
+		return false, "no pipeline_tag set — cannot confirm OpenVINO GenAI compatibility"
+	}
+
+	// Unknown task not in compat or incompat list
+	return false, "task '" + task + "' is not a known OpenVINO GenAI supported task"
+}
+
 func normalizeOVMSTask(value string) string {
 	cleaned := strings.TrimSpace(strings.ToLower(value))
 	cleaned = strings.ReplaceAll(cleaned, "-", "_")
@@ -1520,10 +1600,16 @@ func (a *app) listCatalogFromInternet(searchQuery string, page int, pageSize int
 	}
 
 	hasMore := len(models) >= fetchLimit
+	isGGUF := source == "gguf"
 	items := make([]catalogItem, 0, len(models))
 	for _, model := range models {
 		task := strings.TrimSpace(model.PipelineTag)
 		suggestedTask := normalizeOVMSTask(task)
+		compatible := true
+		compatReason := ""
+		if isGGUF {
+			compatible, compatReason = checkGGUFOpenVINOCompat(task, model.Tags)
+		}
 		items = append(items, catalogItem{
 			ID:            model.ID,
 			Downloads:     model.Downloads,
@@ -1532,6 +1618,8 @@ func (a *app) listCatalogFromInternet(searchQuery string, page int, pageSize int
 			SuggestedTask: suggestedTask,
 			LastModified:  model.LastModified,
 			Tags:          model.Tags,
+			Compatible:    compatible,
+			CompatReason:  compatReason,
 		})
 	}
 

@@ -204,6 +204,26 @@ function renderCatalog(models) {
     row.appendChild(createCell(model.id));
     row.appendChild(createCell(formatDownloads(model.downloads)));
     row.appendChild(createCell(model.task || ""));
+
+    // Compat cell
+    const compatCell = document.createElement("td");
+    if (catalogSource !== "gguf") {
+      // OpenVINO models are always compatible — no badge needed
+      compatCell.textContent = "";
+    } else if (model.compatible) {
+      const pill = document.createElement("span");
+      pill.className = "compat-pill compat-ok";
+      pill.textContent = "OK";
+      compatCell.appendChild(pill);
+    } else {
+      const pill = document.createElement("span");
+      pill.className = "compat-pill compat-no";
+      pill.textContent = "Incompatible";
+      pill.title = model.compatReason || "Not compatible with OpenVINO GenAI";
+      compatCell.appendChild(pill);
+    }
+    row.appendChild(compatCell);
+
     row.appendChild(createCell(model.lastModified || ""));
 
     const actionCell = document.createElement("td");
@@ -224,6 +244,10 @@ function renderCatalog(models) {
 
     const button = document.createElement("button");
     button.textContent = "Download";
+    if (catalogSource === "gguf" && !model.compatible) {
+      button.disabled = true;
+      button.title = model.compatReason || "Not compatible with OpenVINO GenAI";
+    }
     button.addEventListener("click", async () => {
       try {
         setStatus(`Queueing download for ${model.id}...`);
