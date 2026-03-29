@@ -3,6 +3,9 @@ const catalogQueryInput = document.getElementById("catalog-query");
 const catalogSearchButton = document.getElementById("catalog-search-btn");
 const catalogPrevButton = document.getElementById("catalog-prev-btn");
 const catalogNextButton = document.getElementById("catalog-next-btn");
+const catalogLoadMoreButton = document.getElementById("catalog-loadmore-btn");
+const catalogSourceOpenVINO = document.getElementById("catalog-source-openvino");
+const catalogSourceGGUF = document.getElementById("catalog-source-gguf");
 const catalogPageInfo = document.getElementById("catalog-page-info");
 const jobsBody = document.getElementById("jobs-body");
 const jobsRefreshButton = document.getElementById("jobs-refresh-btn");
@@ -24,11 +27,15 @@ const ovmsLatestLink = document.getElementById("ovms-latest-link");
 let catalogPage = 1;
 const catalogPageSize = 20;
 let catalogTotalPages = 1;
+let catalogSource = "openvino";
+let catalogFetchOffset = 0;
+const catalogFetchLimit = 200;
 let jobsPollingHandle = null;
 
 refreshButton.addEventListener("click", () => refreshAll(true));
 catalogSearchButton.addEventListener("click", () => {
   catalogPage = 1;
+  catalogFetchOffset = 0;
   loadCatalog(true);
 });
 catalogPrevButton.addEventListener("click", () => {
@@ -52,8 +59,35 @@ ovmsUpdateButton.addEventListener("click", () => checkOVMSUpdate());
 catalogQueryInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     catalogPage = 1;
+    catalogFetchOffset = 0;
     loadCatalog(true);
   }
+});
+
+catalogSourceOpenVINO.addEventListener("click", () => {
+  if (catalogSource !== "openvino") {
+    catalogSource = "openvino";
+    catalogPage = 1;
+    catalogFetchOffset = 0;
+    updateSourceButtons();
+    loadCatalog(true);
+  }
+});
+
+catalogSourceGGUF.addEventListener("click", () => {
+  if (catalogSource !== "gguf") {
+    catalogSource = "gguf";
+    catalogPage = 1;
+    catalogFetchOffset = 0;
+    updateSourceButtons();
+    loadCatalog(true);
+  }
+});
+
+catalogLoadMoreButton.addEventListener("click", () => {
+  catalogFetchOffset += catalogFetchLimit;
+  catalogPage = 1;
+  loadCatalog(true);
 });
 
 function setStatus(message, isError = false) {
@@ -495,13 +529,17 @@ async function loadCatalog(showMessage = true) {
     }
 
     const query = encodeURIComponent(catalogQueryInput.value.trim());
-    const payload = await request(`/api/catalog?q=${query}&page=${catalogPage}&pageSize=${catalogPageSize}`);
+    const payload = await request(
+      `/api/catalog?q=${query}&page=${catalogPage}&pageSize=${catalogPageSize}&source=${catalogSource}&offset=${catalogFetchOffset}`
+    );
     renderCatalog(payload.items || []);
     catalogPage = payload.page || 1;
     catalogTotalPages = payload.totalPages || 1;
-    catalogPageInfo.textContent = `Page ${catalogPage} / ${catalogTotalPages} (${payload.total || 0} total)`;
+    const batchLabel = catalogFetchOffset > 0 ? ` (#${catalogFetchOffset + 1}+)` : "";
+    catalogPageInfo.textContent = `Page ${catalogPage} / ${catalogTotalPages}${batchLabel} (${payload.total || 0} this batch)`;
     catalogPrevButton.disabled = catalogPage <= 1;
     catalogNextButton.disabled = catalogPage >= catalogTotalPages;
+    catalogLoadMoreButton.disabled = !payload.hasMore;
 
     if (showMessage) {
       setStatus("Catalog updated");
@@ -509,6 +547,11 @@ async function loadCatalog(showMessage = true) {
   } catch (error) {
     setStatus(error.message, true);
   }
+}
+
+function updateSourceButtons() {
+  catalogSourceOpenVINO.classList.toggle("active", catalogSource === "openvino");
+  catalogSourceGGUF.classList.toggle("active", catalogSource === "gguf");
 }
 
 async function loadDownloadJobs(showMessage = false) {

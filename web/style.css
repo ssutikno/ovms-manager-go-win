@@ -177,3 +177,16 @@ button.danger {
 .status.error {
   color: #a11;
 }
+
+.tab-btn {
+  background: #f0f2f4;
+  border-color: #bbb;
+  color: #333;
+  margin-left: 0;
+}
+
+.tab-btn.active {
+  background: #0a5ea8;
+  border-color: #0a5ea8;
+  color: #fff;
+}

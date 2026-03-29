@@ -111,11 +111,13 @@ type catalogItem struct {
 }
 
 type catalogResponse struct {
-	Items      []catalogItem `json:"items"`
-	Page       int           `json:"page"`
-	PageSize   int           `json:"pageSize"`
-	Total      int           `json:"total"`
-	TotalPages int           `json:"totalPages"`
+	Items       []catalogItem `json:"items"`
+	Page        int           `json:"page"`
+	PageSize    int           `json:"pageSize"`
+	Total       int           `json:"total"`
+	TotalPages  int           `json:"totalPages"`
+	HasMore     bool          `json:"hasMore"`
+	FetchOffset int           `json:"fetchOffset"`
 }
 
 type downloadRequest struct {
@@ -289,7 +291,15 @@ func (a *app) handleCatalog(w http.ResponseWriter, r *http.Request) {
 
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	page, pageSize := parseCatalogPagination(r)
-	payload, err := a.listCatalogFromInternet(query, page, pageSize)
+	source := strings.TrimSpace(r.URL.Query().Get("source"))
+	if source == "" {
+		source = "openvino"
+	}
+	fetchOffset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if fetchOffset < 0 {
+		fetchOffset = 0
+	}
+	payload, err := a.listCatalogFromInternet(query, page, pageSize, source, fetchOffset)
 	if err != nil {
 		writeJSONError(w, http.StatusBadGateway, err.Error())
 		return
@@ -1456,7 +1466,7 @@ func inferOVMSTaskFromSource(sourceModel string) string {
 	return "text_generation"
 }
 
-func (a *app) listCatalogFromInternet(searchQuery string, page int, pageSize int) (catalogResponse, error) {
+func (a *app) listCatalogFromInternet(searchQuery string, page int, pageSize int, source string, fetchOffset int) (catalogResponse, error) {
 	fetchLimit := a.catalogLimit
 	if fetchLimit <= 0 {
 		fetchLimit = 200
@@ -1469,10 +1479,17 @@ func (a *app) listCatalogFromInternet(searchQuery string, page int, pageSize int
 	}
 
 	params := url.Values{}
-	params.Set("author", "OpenVINO")
+	if source == "gguf" {
+		params.Set("tags", "gguf")
+	} else {
+		params.Set("author", "OpenVINO")
+	}
 	params.Set("limit", strconv.Itoa(fetchLimit))
 	params.Set("sort", "downloads")
 	params.Set("direction", "-1")
+	if fetchOffset > 0 {
+		params.Set("offset", strconv.Itoa(fetchOffset))
+	}
 	if searchQuery != "" {
 		params.Set("search", searchQuery)
 	}
@@ -1502,6 +1519,7 @@ func (a *app) listCatalogFromInternet(searchQuery string, page int, pageSize int
 		return catalogResponse{}, fmt.Errorf("catalog response parse failed: %w", err)
 	}
 
+	hasMore := len(models) >= fetchLimit
 	items := make([]catalogItem, 0, len(models))
 	for _, model := range models {
 		task := strings.TrimSpace(model.PipelineTag)
@@ -1546,11 +1564,13 @@ func (a *app) listCatalogFromInternet(searchQuery string, page int, pageSize int
 	}
 
 	return catalogResponse{
-		Items:      items[start:end],
-		Page:       page,
-		PageSize:   pageSize,
-		Total:      total,
-		TotalPages: totalPages,
+		Items:       items[start:end],
+		Page:        page,
+		PageSize:    pageSize,
+		Total:       total,
+		TotalPages:  totalPages,
+		HasMore:     hasMore,
+		FetchOffset: fetchOffset,
 	}, nil
 }
 
