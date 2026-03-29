@@ -1438,37 +1438,37 @@ func checkGGUFOpenVINOCompat(task string, tags []string) (bool, string) {
 
 	// Tasks that OpenVINO GenAI can serve via GGUF
 	compatTasks := map[string]bool{
-		"text-generation":            true,
-		"text2text-generation":       true,
-		"conversational":             true,
-		"question-answering":         true,
-		"summarization":              true,
-		"translation":                true,
-		"feature-extraction":         true,
-		"sentence-similarity":        true,
-		"fill-mask":                  true,
+		"text-generation":      true,
+		"text2text-generation": true,
+		"conversational":       true,
+		"question-answering":   true,
+		"summarization":        true,
+		"translation":          true,
+		"feature-extraction":   true,
+		"sentence-similarity":  true,
+		"fill-mask":            true,
 	}
 
 	// Tasks that are definitely NOT compatible
 	incompatTasks := map[string]bool{
-		"text-to-image":                    true,
-		"image-to-image":                   true,
-		"image-classification":             true,
-		"image-text-to-text":               true,
-		"visual-question-answering":        true,
-		"zero-shot-image-classification":   true,
-		"object-detection":                 true,
-		"image-segmentation":               true,
-		"depth-estimation":                 true,
-		"automatic-speech-recognition":     true,
-		"audio-classification":             true,
-		"text-to-audio":                    true,
-		"text-to-speech":                   true,
-		"audio-to-audio":                   true,
-		"video-classification":             true,
-		"unconditional-image-generation":   true,
-		"mask-generation":                  true,
-		"keypoint-detection":               true,
+		"text-to-image":                  true,
+		"image-to-image":                 true,
+		"image-classification":           true,
+		"image-text-to-text":             true,
+		"visual-question-answering":      true,
+		"zero-shot-image-classification": true,
+		"object-detection":               true,
+		"image-segmentation":             true,
+		"depth-estimation":               true,
+		"automatic-speech-recognition":   true,
+		"audio-classification":           true,
+		"text-to-audio":                  true,
+		"text-to-speech":                 true,
+		"audio-to-audio":                 true,
+		"video-classification":           true,
+		"unconditional-image-generation": true,
+		"mask-generation":                true,
+		"keypoint-detection":             true,
 	}
 
 	if incompatTasks[normTask] {
@@ -2278,6 +2278,7 @@ func directoryHasSupportedModelFiles(path string) (bool, error) {
 	hasPDParams := false
 	hasSavedModel := false
 	hasTFLite := false
+	hasGGUF := false
 
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -2301,10 +2302,12 @@ func directoryHasSupportedModelFiles(path string) (bool, error) {
 			hasSavedModel = true
 		case ext == ".tflite":
 			hasTFLite = true
+		case ext == ".gguf":
+			hasGGUF = true
 		}
 	}
 
-	return (hasXML && hasBIN) || hasONNX || (hasPDModel && hasPDParams) || hasSavedModel || hasTFLite, nil
+	return (hasXML && hasBIN) || hasONNX || (hasPDModel && hasPDParams) || hasSavedModel || hasTFLite || hasGGUF, nil
 }
 
 func looksLikeModelDirName(name string) bool {
@@ -2388,6 +2391,7 @@ func hasOVMSGenAILayout(modelPath string) bool {
 	hasModelIndex := false
 	hasOpenVINOModelFile := false
 	hasComponentModel := false
+	hasGGUF := false
 
 	for _, entry := range entries {
 		name := strings.ToLower(entry.Name())
@@ -2413,9 +2417,17 @@ func hasOVMSGenAILayout(modelPath string) bool {
 		if strings.HasPrefix(name, "openvino_model.") {
 			hasOpenVINOModelFile = true
 		}
+		if strings.ToLower(filepath.Ext(name)) == ".gguf" {
+			hasGGUF = true
+		}
 	}
 
 	if hasOpenVINOConfig && (hasOpenVINOModelFile || hasGraphConfig || hasModelIndex || hasComponentModel) {
+		return true
+	}
+
+	// graph.pbtxt + GGUF file at root = valid GenAI GGUF pipeline layout
+	if hasGraphConfig && hasGGUF {
 		return true
 	}
 
@@ -2460,6 +2472,7 @@ func versionContainsSupportedFormat(versionPath string) bool {
 	hasPDParams := false
 	hasSavedModel := false
 	hasTFLite := false
+	hasGGUF := false
 
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -2483,10 +2496,12 @@ func versionContainsSupportedFormat(versionPath string) bool {
 			hasSavedModel = true
 		case ext == ".tflite":
 			hasTFLite = true
+		case ext == ".gguf":
+			hasGGUF = true
 		}
 	}
 
-	return (hasXML && hasBIN) || hasONNX || (hasPDModel && hasPDParams) || hasSavedModel || hasTFLite
+	return (hasXML && hasBIN) || hasONNX || (hasPDModel && hasPDParams) || hasSavedModel || hasTFLite || hasGGUF
 }
 
 func (a *app) ensureModelRepository() error {
