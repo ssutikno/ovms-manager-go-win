@@ -191,21 +191,4 @@ button.danger {
   color: #fff;
 }
 
-.compat-pill {
-  display: inline-block;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 999px;
-}
 
-.compat-ok {
-  background: #d8f5df;
-  color: #1b6d2e;
-}
-
-.compat-no {
-  background: #fbe1e4;
-  color: #8a1d2c;
-  cursor: help;
-}

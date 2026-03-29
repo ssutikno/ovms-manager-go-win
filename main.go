@@ -108,8 +108,6 @@ type catalogItem struct {
 	SuggestedTask string   `json:"suggestedTask,omitempty"`
 	LastModified  string   `json:"lastModified,omitempty"`
 	Tags          []string `json:"tags,omitempty"`
-	Compatible    bool     `json:"compatible"`
-	CompatReason  string   `json:"compatReason,omitempty"`
 }
 
 type catalogResponse struct {
@@ -1605,10 +1603,11 @@ func (a *app) listCatalogFromInternet(searchQuery string, page int, pageSize int
 	for _, model := range models {
 		task := strings.TrimSpace(model.PipelineTag)
 		suggestedTask := normalizeOVMSTask(task)
-		compatible := true
-		compatReason := ""
 		if isGGUF {
-			compatible, compatReason = checkGGUFOpenVINOCompat(task, model.Tags)
+			compatible, _ := checkGGUFOpenVINOCompat(task, model.Tags)
+			if !compatible {
+				continue
+			}
 		}
 		items = append(items, catalogItem{
 			ID:            model.ID,
@@ -1618,8 +1617,6 @@ func (a *app) listCatalogFromInternet(searchQuery string, page int, pageSize int
 			SuggestedTask: suggestedTask,
 			LastModified:  model.LastModified,
 			Tags:          model.Tags,
-			Compatible:    compatible,
-			CompatReason:  compatReason,
 		})
 	}
 
