@@ -30,9 +30,10 @@ import (
 var webFS embed.FS
 
 var (
-	modelNameSanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
-	serviceStateRegex  = regexp.MustCompile(`(?m)STATE\s*:\s*\d+\s+([A-Z_]+)`)
-	versionRegex       = regexp.MustCompile(`\d+\.\d+(?:\.\d+)?(?:[-+._][0-9A-Za-z]+)?`)
+	modelNameSanitizer   = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
+	serviceStateRegex    = regexp.MustCompile(`(?m)STATE\s*:\s*\d+\s+([A-Z_]+)`)
+	versionRegex         = regexp.MustCompile(`\d+\.\d+(?:\.\d+)?(?:[-+._][0-9A-Za-z]+)?`)
+	ggufModelsDirRegex   = regexp.MustCompile(`(?m)(^\s*models_path\s*:\s*)"(?:\./|\.)",?`)
 	versionTriplet     = regexp.MustCompile(`(\d+)\.(\d+)(?:\.(\d+))?`)
 	downloadProgressRe = regexp.MustCompile(`(\d{1,3})\s*%`)
 )
@@ -246,6 +247,7 @@ func main() {
 	mux.HandleFunc("/api/ovms/start", instance.handleOVMSStart)
 	mux.HandleFunc("/api/ovms/stop", instance.handleOVMSStop)
 	mux.HandleFunc("/api/ovms/update", instance.handleOVMSUpdate)
+	mux.HandleFunc("/api/ovms/logs", instance.handleOVMSLogs)
 
 	subWeb, err := fs.Sub(webFS, "web")
 	if err != nil {
@@ -599,6 +601,13 @@ func (a *app) registerModelConfig(req registerRequest) error {
 	}
 
 	if isMediapipeLLMModel(found.BasePath) {
+		// For GGUF models: patch graph.pbtxt models_path from "./" to the specific
+		// gguf filename so OVMS can resolve the path correctly on Windows.
+		if primaryGGUF := findPrimaryGGUFFile(found.BasePath); primaryGGUF != "" {
+			if err := patchGraphPbtxtModelPath(found.BasePath, primaryGGUF); err != nil {
+				log.Printf("warning: could not patch graph.pbtxt models_path for %s: %v", found.BasePath, err)
+			}
+		}
 		cfg.MediapipeConfigList = append(cfg.MediapipeConfigList, mediapipeConfigEntry{
 			Name:     req.Name,
 			BasePath: filepath.ToSlash(found.BasePath),
@@ -2391,6 +2400,155 @@ func isMediapipeLLMModel(modelPath string) bool {
 	}
 	content := string(data)
 	return strings.Contains(content, "HttpLLMCalculator") || strings.Contains(content, "LLMCalculator")
+}
+
+// findPrimaryGGUFFile returns the filename (not full path) of the main GGUF model
+// file in modelPath, skipping multimodal projector / embedding files.
+func findPrimaryGGUFFile(modelPath string) string {
+	skipPatterns := []string{"mmproj", "mmpt", "-embed", "_embed", "vision_encoder", "-proj"}
+	entries, err := os.ReadDir(modelPath)
+	if err != nil {
+		return ""
+	}
+	var candidates []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.EqualFold(filepath.Ext(name), ".gguf") {
+			continue
+		}
+		lower := strings.ToLower(name)
+		skip := false
+		for _, pat := range skipPatterns {
+			if strings.Contains(lower, pat) {
+				skip = true
+				break
+			}
+		}
+		if !skip {
+			candidates = append(candidates, name)
+		}
+	}
+	if len(candidates) == 0 {
+		return ""
+	}
+	sort.Strings(candidates)
+	return candidates[0]
+}
+
+// patchGraphPbtxtModelPath rewrites the models_path field in graph.pbtxt from
+// "./" to ggufFilename so OVMS can resolve the path correctly on Windows.
+func patchGraphPbtxtModelPath(modelPath string, ggufFilename string) error {
+	graphPath := filepath.Join(modelPath, "graph.pbtxt")
+	data, err := os.ReadFile(graphPath)
+	if err != nil {
+		return err
+	}
+	content := string(data)
+	updated := ggufModelsDirRegex.ReplaceAllString(content, `$1"`+ggufFilename+`",`)
+	if updated == content {
+		return nil // pattern not found or already updated
+	}
+	return os.WriteFile(graphPath, []byte(updated), 0o644)
+}
+
+// resolveOVMSLogPath returns the path to the OVMS server log file.
+func (a *app) resolveOVMSLogPath() (string, error) {
+	ovmsPath, err := a.resolveOVMSExecutablePath()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(filepath.Dir(ovmsPath), "ovms_server.log"), nil
+}
+
+// handleOVMSLogs streams the tail of the OVMS log file as JSON.
+// Query params: lines (int, default 300, max 5000), errors (bool, filter to errors/warnings only).
+func (a *app) handleOVMSLogs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	lines, _ := strconv.Atoi(r.URL.Query().Get("lines"))
+	if lines <= 0 {
+		lines = 300
+	}
+	if lines > 5000 {
+		lines = 5000
+	}
+	errorsOnly := r.URL.Query().Get("errors") == "true"
+
+	logPath, err := a.resolveOVMSLogPath()
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	content, err := readLastLines(logPath, lines)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			writeJSON(w, http.StatusOK, map[string]string{"content": "(log file not found)"})
+			return
+		}
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if errorsOnly {
+		content = filterLogErrors(content)
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"content": content})
+}
+
+// readLastLines reads the last n lines from a file, reading at most 512 KB from
+// the end to keep memory usage bounded on large log files.
+func readLastLines(path string, n int) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return "", err
+	}
+
+	const maxRead = 512 * 1024
+	offset := info.Size() - maxRead
+	if offset < 0 {
+		offset = 0
+	}
+	if _, err := f.Seek(offset, io.SeekStart); err != nil {
+		return "", err
+	}
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return "", err
+	}
+
+	allLines := strings.Split(string(data), "\n")
+	if len(allLines) > n {
+		allLines = allLines[len(allLines)-n:]
+	}
+	return strings.Join(allLines, "\n"), nil
+}
+
+// filterLogErrors keeps only lines that contain error, warning, or exception keywords.
+func filterLogErrors(content string) string {
+	lines := strings.Split(content, "\n")
+	filtered := make([]string, 0, len(lines))
+	for _, line := range lines {
+		lower := strings.ToLower(line)
+		if strings.Contains(lower, "[error]") || strings.Contains(lower, "[warn]") ||
+			strings.Contains(lower, "exception") || strings.Contains(lower, "failed") ||
+			strings.Contains(lower, "could not") {
+			filtered = append(filtered, line)
+		}
+	}
+	if len(filtered) == 0 {
+		return "(no errors or warnings found in the selected log range)"
+	}
+	return strings.Join(filtered, "\n")
 }
 
 func hasOVMSGenAILayout(modelPath string) bool {

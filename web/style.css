@@ -178,6 +178,27 @@ button.danger {
   color: #a11;
 }
 
+.log-container {
+  max-height: 400px;
+  overflow-y: auto;
+  background: #1a1a2e;
+  border-radius: 4px;
+  margin-top: 8px;
+}
+
+#log-content {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: #e0e0e0;
+}
+
+.log-error { color: #ff6b6b; }
+.log-warn  { color: #ffd93d; }
+
 .tab-btn {
   background: #f0f2f4;
   border-color: #bbb;

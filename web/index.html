@@ -124,6 +124,19 @@
         </table>
       </section>
 
+      <section class="card">
+        <div class="row-between">
+          <h2>OVMS Log</h2>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <label style="font-size:13px;"><input type="checkbox" id="log-errors-only"> Errors only</label>
+            <button id="log-refresh-btn">Refresh</button>
+          </div>
+        </div>
+        <div class="log-container">
+          <pre id="log-content">Loading log...</pre>
+        </div>
+      </section>
+
       <p id="status" class="status"></p>
     </main>
     <script src="app.js"></script>

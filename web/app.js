@@ -24,7 +24,9 @@ const ovmsUpdateState = document.getElementById("ovms-update-state");
 const ovmsDetails = document.getElementById("ovms-details");
 const ovmsLatestLink = document.getElementById("ovms-latest-link");
 
-let catalogPage = 1;
+const logContent       = document.getElementById("log-content");
+const logRefreshButton = document.getElementById("log-refresh-btn");
+const logErrorsOnly    = document.getElementById("log-errors-only");
 const catalogPageSize = 20;
 let catalogTotalPages = 1;
 let catalogSource = "openvino";
@@ -608,3 +610,48 @@ function startJobsPolling() {
 
 startJobsPolling();
 refreshAll(true);
+
+// ── OVMS Log Viewer ──────────────────────────────────────────
+async function loadOVMSLog() {
+  const errorsOnly = logErrorsOnly.checked;
+  const url = `/api/ovms/logs?lines=300&errors=${errorsOnly}`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    const raw = data.content || "";
+    // Colorize lines by severity
+    const html = raw.split("\n").map(line => {
+      const lower = line.toLowerCase();
+      if (lower.includes("[error]") || lower.includes("exception") || lower.includes("could not")) {
+        return `<span class="log-error">${escapeHtml(line)}</span>`;
+      }
+      if (lower.includes("[warn]") || lower.includes("warning")) {
+        return `<span class="log-warn">${escapeHtml(line)}</span>`;
+      }
+      return escapeHtml(line);
+    }).join("\n");
+    logContent.innerHTML = html;
+    // Auto-scroll to bottom
+    logContent.parentElement.scrollTop = logContent.parentElement.scrollHeight;
+  } catch (e) {
+    logContent.textContent = `Error loading log: ${e.message}`;
+  }
+}
+
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+logRefreshButton.addEventListener("click", () => loadOVMSLog());
+logErrorsOnly.addEventListener("change", () => loadOVMSLog());
+
+// Auto-refresh log every 15 seconds while the page is visible
+setInterval(() => {
+  if (!document.hidden) loadOVMSLog();
+}, 15000);
+
+loadOVMSLog();
+
