@@ -108,6 +108,7 @@ type catalogItem struct {
 	SuggestedTask string   `json:"suggestedTask,omitempty"`
 	LastModified  string   `json:"lastModified,omitempty"`
 	Tags          []string `json:"tags,omitempty"`
+	Params        int64    `json:"params,omitempty"`
 }
 
 type catalogResponse struct {
@@ -128,13 +129,19 @@ type downloadRequest struct {
 	Overwrite    bool   `json:"overwrite"`
 }
 
+type hfSafetensors struct {
+	Total int64 `json:"total"`
+}
+
 type hfCatalogModel struct {
-	ID           string   `json:"id"`
-	Downloads    int      `json:"downloads"`
-	Likes        int      `json:"likes"`
-	PipelineTag  string   `json:"pipeline_tag"`
-	LastModified string   `json:"lastModified"`
-	Tags         []string `json:"tags"`
+	ID           string         `json:"id"`
+	Downloads    int            `json:"downloads"`
+	Likes        int            `json:"likes"`
+	PipelineTag  string         `json:"pipeline_tag"`
+	LastModified string         `json:"lastModified"`
+	UpdatedAt    string         `json:"updatedAt"`
+	Tags         []string       `json:"tags"`
+	Safetensors  *hfSafetensors `json:"safetensors"`
 }
 
 type downloadJob struct {
@@ -1609,14 +1616,23 @@ func (a *app) listCatalogFromInternet(searchQuery string, page int, pageSize int
 				continue
 			}
 		}
+		lastMod := model.LastModified
+		if lastMod == "" {
+			lastMod = model.UpdatedAt
+		}
+		var params int64
+		if model.Safetensors != nil {
+			params = model.Safetensors.Total
+		}
 		items = append(items, catalogItem{
 			ID:            model.ID,
 			Downloads:     model.Downloads,
 			Likes:         model.Likes,
 			Task:          task,
 			SuggestedTask: suggestedTask,
-			LastModified:  model.LastModified,
+			LastModified:  lastMod,
 			Tags:          model.Tags,
+			Params:        params,
 		})
 	}
 

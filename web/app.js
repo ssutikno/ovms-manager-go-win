@@ -186,6 +186,19 @@ function renderOVMSStatus(status) {
   }
 }
 
+function formatParams(n) {
+  if (!n) return "\u2014";
+  if (n >= 1e12) return (n / 1e12).toFixed(1) + "T";
+  if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+  return n.toLocaleString();
+}
+
+function formatDate(iso) {
+  if (!iso) return "";
+  return iso.slice(0, 10);
+}
+
 function renderCatalog(models) {
   catalogBody.innerHTML = "";
 
@@ -203,8 +216,8 @@ function renderCatalog(models) {
     const row = document.createElement("tr");
     row.appendChild(createCell(model.id));
     row.appendChild(createCell(formatDownloads(model.downloads)));
-    row.appendChild(createCell(model.task || ""));
-    row.appendChild(createCell(model.lastModified || ""));
+    row.appendChild(createCell(formatParams(model.params)));
+    row.appendChild(createCell(formatDate(model.lastModified)));
 
     const actionCell = document.createElement("td");
 
@@ -215,7 +228,9 @@ function renderCatalog(models) {
     taskInput.className = "task-input";
 
     const button = document.createElement("button");
-    button.textContent = "Download";
+    button.textContent = "\u2B07";
+    button.title = "Download";
+    button.className = "btn-icon";
     button.addEventListener("click", async () => {
       try {
         setStatus(`Queueing download for ${model.id}...`);

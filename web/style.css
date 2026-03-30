@@ -191,4 +191,10 @@ button.danger {
   color: #fff;
 }
 
+.btn-icon {
+  padding: 4px 10px;
+  font-size: 16px;
+  line-height: 1;
+}
+
 
