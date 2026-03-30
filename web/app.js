@@ -27,6 +27,8 @@ const ovmsLatestLink = document.getElementById("ovms-latest-link");
 const logContent       = document.getElementById("log-content");
 const logRefreshButton = document.getElementById("log-refresh-btn");
 const logErrorsOnly    = document.getElementById("log-errors-only");
+
+let catalogPage = 1;
 const catalogPageSize = 20;
 let catalogTotalPages = 1;
 let catalogSource = "openvino";

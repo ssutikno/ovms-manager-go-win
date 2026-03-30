@@ -30,10 +30,10 @@ import (
 var webFS embed.FS
 
 var (
-	modelNameSanitizer   = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
-	serviceStateRegex    = regexp.MustCompile(`(?m)STATE\s*:\s*\d+\s+([A-Z_]+)`)
-	versionRegex         = regexp.MustCompile(`\d+\.\d+(?:\.\d+)?(?:[-+._][0-9A-Za-z]+)?`)
-	ggufModelsDirRegex   = regexp.MustCompile(`(?m)(^\s*models_path\s*:\s*)"(?:\./|\.)",?`)
+	modelNameSanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
+	serviceStateRegex  = regexp.MustCompile(`(?m)STATE\s*:\s*\d+\s+([A-Z_]+)`)
+	versionRegex       = regexp.MustCompile(`\d+\.\d+(?:\.\d+)?(?:[-+._][0-9A-Za-z]+)?`)
+	ggufModelsDirRegex = regexp.MustCompile(`(?m)(^\s*models_path\s*:\s*)"(?:\./|\.)",?`)
 	versionTriplet     = regexp.MustCompile(`(\d+)\.(\d+)(?:\.(\d+))?`)
 	downloadProgressRe = regexp.MustCompile(`(\d{1,3})\s*%`)
 )
@@ -2434,6 +2434,17 @@ func findPrimaryGGUFFile(modelPath string) string {
 	if len(candidates) == 0 {
 		return ""
 	}
+	// Prefer quantization types that OVMS's GGUF parser supports reliably.
+	// K-quants (Q4_K_M, Q6_K, etc.) can cause gguf_tensor_to_f16 failures.
+	preferOrder := []string{"q8_0", "q4_0", "q5_0", "q5_1", "q4_1", "f16", "f32"}
+	for _, pref := range preferOrder {
+		for _, c := range candidates {
+			if strings.Contains(strings.ToLower(c), pref) {
+				return c
+			}
+		}
+	}
+	// Fallback: alphabetical
 	sort.Strings(candidates)
 	return candidates[0]
 }
